@@ -14,9 +14,10 @@ typedef struct algorithms {
     int rotationsBy90;
     bool mirrorX;
     bool mirrorY;
+    bool record;
 } Algorithms;
 
-void setToggles(Algorithms *toggles);
+void updateToggles(Algorithms *toggles);
 void applyProcessing(Algorithms toggles, cv::Mat *frame);
 
 int main(int argc, char **argv) {
@@ -26,6 +27,13 @@ int main(int argc, char **argv) {
     // Check VideoCapture documentation.
     if (!cap.open(camera))
         return 0;
+
+    // open video recorder
+    cv::Mat firstFrame;
+    cap >> firstFrame;
+    int fourcc = cv::VideoWriter::fourcc('X','V','I','D');
+    cv::VideoWriter writer = cv::VideoWriter();
+    writer.open("footage.avi", fourcc, 32.0, cv::Size(640,480), firstFrame.channels() == 3);
 
     Algorithms toggles = {true, false};
     while (toggles.capture) {
@@ -37,13 +45,23 @@ int main(int argc, char **argv) {
 
         imshow("This is you, smile! :)", frame);
 
-        setToggles(&toggles);
+        if (toggles.record) {
+            if (frame.channels() == 1) {
+                cv::Mat bgr;
+                cv::cvtColor(frame, bgr, cv::COLOR_GRAY2BGR);
+                frame = bgr;
+            }
+            writer.write(frame);
+        }
+
+        updateToggles(&toggles);
     }
     cap.release();  // release the VideoCapture object
+    writer.release();  // release the VideoWriter object
     return 0;
 }
 
-void setToggles(Algorithms *toggles) {
+void updateToggles(Algorithms *toggles) {
     switch (cv::waitKey(1)) {
         default: break;
 
@@ -97,6 +115,10 @@ void setToggles(Algorithms *toggles) {
 
         case 67: // C - Mirror in y
             toggles->mirrorY = !toggles->mirrorY;
+            break;
+
+        case 68: // D - Record
+            toggles->record = !toggles->record;
             break;
     }
 }
