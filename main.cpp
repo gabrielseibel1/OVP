@@ -58,9 +58,11 @@ int main(int argc, char **argv) {
         cap >> frame;
         if (frame.empty()) break; // end of video stream
 
+        imshow("This is you, smile! :)", frame);
+
         applyProcessing(toggles, parameters, &frame);
 
-        imshow("This is you, smile! :)", frame);
+        imshow("You, but processed!", frame);
 
         if (toggles.record) {
             if (frame.channels() == 1) {
@@ -89,13 +91,13 @@ void openVideoRecorder(cv::VideoCapture &cap, cv::VideoWriter &writer) {
 void spawnTrackbars(cv::VideoCapture &cap, ProcessingParameters &parameters) {
     cv::Mat frame;
     cap >> frame;
-    imshow("This is you, smile! :)", frame);
-    cv::createTrackbar("Gaussian Blur", "This is you, smile! :)", &parameters.gaussianSize, 100,
+    imshow("You, but processed!", frame);
+    cv::createTrackbar("Gaussian Blur", "You, but processed!", &parameters.gaussianSize, 100,
                        assertValidGaussianSize, &parameters.gaussianSize);
-    cv::createTrackbar("Canny High Threshold", "This is you, smile! :)", &parameters.cannyHighThreshold, 255,
+    cv::createTrackbar("Canny High Threshold", "You, but processed!", &parameters.cannyHighThreshold, 255,
                        assertValidCannyHighThreshold, &parameters.cannyHighThreshold);
-    cv::createTrackbar("Brightness (+255)", "This is you, smile! :)", &parameters.brightness, 510, nullptr, nullptr);
-    cv::createTrackbar("Contrast (x100)", "This is you, smile! :)", &parameters.contrast, 200, nullptr, nullptr);
+    cv::createTrackbar("Brightness (+255)", "You, but processed!", &parameters.brightness, 510, nullptr, nullptr);
+    cv::createTrackbar("Contrast (x100)", "You, but processed!", &parameters.contrast, 200, nullptr, nullptr);
 }
 
 void updateToggles(Algorithms *toggles) {
