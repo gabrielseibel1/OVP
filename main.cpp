@@ -17,8 +17,24 @@ typedef struct algorithms {
     bool record;
 } Algorithms;
 
+typedef struct processingParameters {
+    int gaussianSize;
+    int cannyHighThreshold;
+    int brightness;
+    int contrast;
+} ProcessingParameters;
+
 void updateToggles(Algorithms *toggles);
-void applyProcessing(Algorithms toggles, cv::Mat *frame);
+
+void applyProcessing(Algorithms toggles, ProcessingParameters parameters, cv::Mat *frame);
+
+void assertValidGaussianSize(int pos, void *size);
+
+void assertValidCannyHighThreshold(int pos, void *threshold);
+
+void spawnTrackbars(cv::VideoCapture &cap, ProcessingParameters &parameters);
+
+void openVideoRecorder(cv::VideoCapture &cap, cv::VideoWriter &writer);
 
 int main(int argc, char **argv) {
     int camera = 0;
@@ -29,19 +45,20 @@ int main(int argc, char **argv) {
         return 0;
 
     // open video recorder
-    cv::Mat firstFrame;
-    cap >> firstFrame;
-    int fourcc = cv::VideoWriter::fourcc('X','V','I','D');
-    cv::VideoWriter writer = cv::VideoWriter();
-    writer.open("footage.avi", fourcc, 32.0, cv::Size(640,480), firstFrame.channels() == 3);
+    cv::VideoWriter writer;
+    openVideoRecorder(cap, writer);
 
     Algorithms toggles = {true, false};
+    ProcessingParameters parameters = {3, 255, 255, 1};
+
+    spawnTrackbars(cap, parameters);
+
     while (toggles.capture) {
         cv::Mat frame;
         cap >> frame;
         if (frame.empty()) break; // end of video stream
 
-        applyProcessing(toggles, &frame);
+        applyProcessing(toggles, parameters, &frame);
 
         imshow("This is you, smile! :)", frame);
 
@@ -61,9 +78,30 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+void openVideoRecorder(cv::VideoCapture &cap, cv::VideoWriter &writer) {
+    writer = cv::VideoWriter();
+    cv::Mat firstFrame;
+    cap >> firstFrame;
+    int fourcc = cv::VideoWriter::fourcc('X', 'V', 'I', 'D');
+    writer.open("footage.avi", fourcc, 32.0, cv::Size(640, 480), firstFrame.channels() == 3);
+}
+
+void spawnTrackbars(cv::VideoCapture &cap, ProcessingParameters &parameters) {
+    cv::Mat frame;
+    cap >> frame;
+    imshow("This is you, smile! :)", frame);
+    cv::createTrackbar("Gaussian Blur", "This is you, smile! :)", &parameters.gaussianSize, 100,
+                       assertValidGaussianSize, &parameters.gaussianSize);
+    cv::createTrackbar("Canny High Threshold", "This is you, smile! :)", &parameters.cannyHighThreshold, 255,
+                       assertValidCannyHighThreshold, &parameters.cannyHighThreshold);
+    cv::createTrackbar("Brightness (+255)", "This is you, smile! :)", &parameters.brightness, 510, nullptr, nullptr);
+    cv::createTrackbar("Contrast (x100)", "This is you, smile! :)", &parameters.contrast, 200, nullptr, nullptr);
+}
+
 void updateToggles(Algorithms *toggles) {
     switch (cv::waitKey(1)) {
-        default: break;
+        default:
+            break;
 
         case 27: // stop capturing by pressing ESC
             toggles->capture = false;
@@ -123,15 +161,27 @@ void updateToggles(Algorithms *toggles) {
     }
 }
 
-void applyProcessing(Algorithms toggles, cv::Mat *frame) {
+void assertValidGaussianSize(int pos, void *size) {
+    auto intSize = (int *) size;
+    if (*intSize % 2 == 0) *intSize = *intSize + 1;
+    if (*intSize < 3) *intSize = 3;
+}
+
+void assertValidCannyHighThreshold(int pos, void *threshold) {
+    auto intTH = (int *) threshold;
+    if (*intTH < 0) *intTH = 0;
+    else if (*intTH > 255) *intTH = 255;
+}
+
+void applyProcessing(Algorithms toggles, ProcessingParameters parameters, cv::Mat *frame) {
     if (toggles.gaussian) {
-        cv::Size size = cv::Size(25,25);
-        cv::GaussianBlur(*frame, *frame, size, 0, cv::BORDER_DEFAULT);
+        cv::Size sizeObj = cv::Size(parameters.gaussianSize, parameters.gaussianSize);
+        cv::GaussianBlur(*frame, *frame, sizeObj, 0, cv::BORDER_DEFAULT);
     }
 
     if (toggles.canny) {
         cv::Mat edges;
-        cv::Canny(*frame, edges, 10, 250, 3, false);
+        cv::Canny(*frame, edges, parameters.cannyHighThreshold, (float) parameters.cannyHighThreshold / 3, 3, true);
         *frame = edges;
     }
 
@@ -144,11 +194,11 @@ void applyProcessing(Algorithms toggles, cv::Mat *frame) {
     }
 
     if (toggles.brightness) {
-        frame->convertTo(*frame, frame->depth(), 1, 100);
+        frame->convertTo(*frame, frame->depth(), 1, parameters.brightness - 255);
     }
 
     if (toggles.contrast) {
-        frame->convertTo(*frame, frame->depth(), 2, 0);
+        frame->convertTo(*frame, frame->depth(), (float) (parameters.contrast) / 100, 0);
     }
 
     if (toggles.negative) {
@@ -165,13 +215,13 @@ void applyProcessing(Algorithms toggles, cv::Mat *frame) {
 
     if (toggles.halfSizeX) {
         cv::Mat halved;
-        cv::resize(*frame, halved, cv::Size(0,0), 0.5, 1, cv::INTER_LINEAR);
+        cv::resize(*frame, halved, cv::Size(0, 0), 0.5, 1, cv::INTER_LINEAR);
         *frame = halved;
     }
 
     if (toggles.halfSizeY) {
         cv::Mat halved;
-        cv::resize(*frame, halved, cv::Size(0,0), 1, 0.5, cv::INTER_LINEAR);
+        cv::resize(*frame, halved, cv::Size(0, 0), 1, 0.5, cv::INTER_LINEAR);
         *frame = halved;
     }
 
